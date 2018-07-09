@@ -1,0 +1,210 @@
+﻿@*
+    This is an example page of the process required for a PayGate PayHost Card Payment transaction.
+    Same functionality as index.cshtml, simpler display
+*@
+@using System.ServiceModel;
+@using System.ServiceModel.Web;
+@using System.Text;
+@using System.Xml.Serialization;
+@using System.Xml;
+@{
+    //ini_set("display_errors", 1);
+    //ini_set("default_socket_timeout", 300);
+    var initRequest = new StringBuilder();
+    string responseTxt = "";
+    var fullPath = GlobalUtility.getUriParts();
+    var queryResponse = new PayHost.SinglePaymentResponse1();
+    var r1 = new PayHost.CardPaymentResponseType();
+    var htmlRedirectRaw = Html.Raw("");
+    var htmlRedirectRaw1 = Html.Raw("");
+    var htmlRedirectRaw2 = Html.Raw("");
+    var htmlRedirect = "";
+    string redirectUrl = "";
+
+    ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls12;
+
+    //Set up Payhost Web Service
+    PayHost.PayHOST payHOST = new PayHost.PayHOSTClient("PayHOSTSoap11");
+
+    //Set up the intial form parameters
+    var payGateId = "10011072130";
+    var encryptionKey = "test";
+    var reference = GlobalUtility.generateReference();
+
+    /*
+    * Set the session vars
+    */
+    SessionModel.pgid = payGateId;
+    SessionModel.reference = reference;
+    SessionModel.key = encryptionKey;
+
+    //Set variables to be used for the serialization request
+    PayHost.CardPaymentRequestType cardPaymentRequestType = new PayHost.CardPaymentRequestType();
+
+    cardPaymentRequestType.Account = new PayHost.PayGateAccountType();
+    cardPaymentRequestType.Account.Password = encryptionKey;
+    cardPaymentRequestType.Account.PayGateId = payGateId;
+    cardPaymentRequestType.Items = new string[2];
+
+    //Customer fields are optional
+    cardPaymentRequestType.Customer = new PayHost.PersonType();
+    cardPaymentRequestType.Customer.Title = "Mr";
+    cardPaymentRequestType.Customer.FirstName = "PayGate";
+    cardPaymentRequestType.Customer.LastName = "Test";
+    cardPaymentRequestType.Customer.Telephone = GlobalUtility.getStringArray("0861234567");
+    cardPaymentRequestType.Customer.Mobile = GlobalUtility.getStringArray("0842573344");
+    cardPaymentRequestType.Customer.Fax = GlobalUtility.getStringArray("08600999111");
+    cardPaymentRequestType.Customer.Email = GlobalUtility.getStringArray("itsupport@paygate.co.za");
+
+    //Card details - following order is critical to avoid Validation Error exception!!
+    cardPaymentRequestType.ItemsElementName = new PayHost.ItemsChoiceType[]
+    {
+PayHost.ItemsChoiceType.CardNumber,
+PayHost.ItemsChoiceType.CardExpiryDate
+    };
+    cardPaymentRequestType.Items = new string[] { "4000000000000002", "122020" };
+    cardPaymentRequestType.CardIssueDate = "122016";
+    cardPaymentRequestType.CardIssueNumber = "345";
+    cardPaymentRequestType.CVV = "987";
+    cardPaymentRequestType.BudgetPeriod = "0";
+
+
+    //Redirects
+    cardPaymentRequestType.Redirect = new PayHost.RedirectRequestType();
+    cardPaymentRequestType.Redirect.NotifyUrl = fullPath[0] + "//" + fullPath[2] + "/PayHost/notify.cshtml";
+    cardPaymentRequestType.Redirect.ReturnUrl = fullPath[0] + "//" + fullPath[2] + "/PayHost/result.cshtml";
+
+    //Order details
+    cardPaymentRequestType.Order = new PayHost.OrderType();
+    cardPaymentRequestType.Order.MerchantOrderId = GlobalUtility.generateReference();
+    cardPaymentRequestType.Order.Currency = PayHost.CurrencyType.ZAR;
+    cardPaymentRequestType.Order.Amount = 12311;
+    cardPaymentRequestType.Order.OrderItems = new PayHost.OrderItemType[1];
+    cardPaymentRequestType.Order.OrderItems[0] = new PayHost.OrderItemType();
+    cardPaymentRequestType.Order.OrderItems[0].ProductCode = "ABC123";
+    cardPaymentRequestType.Order.OrderItems[0].ProductDescription = "Misc";
+    cardPaymentRequestType.Order.OrderItems[0].ProductCategory = "misc";
+    cardPaymentRequestType.Order.OrderItems[0].ProductRisk = "XX";
+    cardPaymentRequestType.Order.OrderItems[0].OrderQuantity = UInt32.Parse("1");
+    cardPaymentRequestType.Order.OrderItems[0].OrderQuantitySpecified = true;
+    cardPaymentRequestType.Order.OrderItems[0].UnitPrice = Decimal.Parse("123.11");
+    cardPaymentRequestType.Order.OrderItems[0].UnitPriceSpecified = true;
+    cardPaymentRequestType.Order.OrderItems[0].Currency = "ZAR";
+
+    //Representation of the above input - for display only, not used
+    var initRequestTxt = PayhostSOAP.getXMLText(cardPaymentRequestType);
+
+
+    if (Request["btnSubmit"] != null)
+    {
+        //TextWriter textWriter = new StreamWriter("d:testwriter.xml");
+        try
+        {
+            var sprequest = new PayHost.SinglePaymentRequest
+            {
+                //Item = new XmlElementAttribute("CardPaymentRequest", typeof(PayHost.CardPaymentRequestType))
+                Item = cardPaymentRequestType
+            };
+
+            var sprequest1 = new PayHost.SinglePaymentRequest1(sprequest);
+
+            //var type = typeof(PayHost.SinglePaymentRequest);
+            //XmlSerializer s = new XmlSerializer(typeof(PayHost.CardPaymentRequestType));
+            //s.Serialize(textWriter, cardPaymentRequestType);
+            //textWriter.Close();
+
+            //TextReader textReader = new StreamReader("d:testwriter.xml");
+            //XmlSerializer card = new XmlSerializer(typeof(PayHost.CardPaymentRequestType));
+            //var cardreq = new PayHost.CardPaymentRequestType();
+            //cardreq = (PayHost.CardPaymentRequestType)card.Deserialize(textReader);
+            //textReader.Close();
+
+            queryResponse = payHOST.SinglePayment(sprequest1);
+            r1 = queryResponse.SinglePaymentResponse.Item as PayHost.CardPaymentResponseType;
+
+            //Illustrate some of the return values in the response box
+            responseTxt = PayhostSOAP.getXMLText(r1);
+
+
+
+
+            redirectUrl = r1.Redirect.RedirectUrl;
+            var htmlRedirect1 = "<form role=\"form\" class=\"form-horizontal text-left\" action=\"";
+            htmlRedirect1 += r1.Redirect.RedirectUrl + "\" method=\"post\" target=\"iframetest\">";
+            htmlRedirect1 = "";
+            foreach (var item in r1.Redirect.UrlParams)
+            {
+                htmlRedirect1 += "<input type=\"hidden\" name=\"" + item.key + "\" value=\"" + item.value + "\"/>";
+            }
+
+            htmlRedirectRaw1 = Html.Raw(htmlRedirect1);
+
+            if (r1.Redirect != null)
+            {
+                //We have a redirect request - add the necessary html
+                htmlRedirect = "<div class=\"row\"><div class=\"col-sm-offset-4 col-sm-4\">";
+                htmlRedirect += "<button id=\"showRedirectBtn\" class=\"btn btn-warning btn-block\" type=\"button\" data-toggle=\"collapse\" data-target=\"#redirectDiv\" aria-expanded=\"false\" aria-controls=\"redirectDiv\">Redirect Required</button></div></div><br>";
+                htmlRedirect += "<div id=\"redirectDiv\" class=\"collapse well well-sm\"><div class=\"row\"><div class=\"col-sm-12\">";
+                htmlRedirect += "<label style=\"vertical-align: top\" for=\"redirect\" class=\"col-sm-3 sr-only\">Redirect</label>";
+                htmlRedirect += "<textarea class=\"form-control\" rows=\"8\" cols=\"100\" id=\"redirect\">";
+                htmlRedirect += Html.Raw(htmlRedirect1);
+                htmlRedirect += "</textarea></div></div>";
+            }
+
+            htmlRedirectRaw = Html.Raw(htmlRedirect);
+
+            var htmlRedirect2 = "<form role=\"form\" class=\"form-horizontal text-left\" action=\"" + redirectUrl + "\" method=\"post\" target=\"iframetest\">" + htmlRedirect1;
+            htmlRedirect2 += "<br><div class=\"form-group\"><div class=\"col-sm-offset-4 col-sm-4\"><img src=\"../../../lib/images/loader.gif\" alt=\"Processing\" class=\"initialHide\" id=\"submitLoader\">";
+            htmlRedirect2 += "<input class=\"btn btn-success btn-block\" type=\"submit\" name=\"submitBtn\" id=\"doSubmitBtn\" value=\"submit\" data-toggle=\"modal\" data-target=\"#authModal\" />";
+            htmlRedirect2 += "</div></div><br></form>";
+
+            htmlRedirectRaw2 = Html.Raw(htmlRedirect2);
+        }
+        catch (Exception sf)
+        {
+            /*
+            * handle errors
+            */
+            var err = sf.Message;
+            //textWriter.Close();
+        }
+    }
+    else
+    {
+
+
+    }
+}
+
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+    <meta http-equiv="content-type" content="text/html; charset=utf-8">
+    <title>PayHost - CardPayment</title>
+    <style type="text/css">
+        label {
+            margin-top: 5px;
+            display: inline-block;
+            width: 150px;
+        }
+    </style>
+</head>
+<body>
+    <a href="index.cshtml">back to Initiate</a>
+    <form action="simple_initiate.cshtml" method="post">
+        <label style="vertical-align: top;" for="request">Request</label>
+        <textarea name="request" cols="130" rows="45" id="request">
+            @initRequestTxt
+		</textarea>
+        <br>
+        <input id="doAuthBtn" type="submit" name="btnSubmit" value="Do Auth" />
+        <br>
+        <label style="vertical-align: top;" for="response">Response</label>
+        <textarea name="response" cols="100" rows="10">
+            @responseTxt
+        </textarea>
+    </form>
+    @htmlRedirectRaw
+    @htmlRedirectRaw2
+</body>
+</html>

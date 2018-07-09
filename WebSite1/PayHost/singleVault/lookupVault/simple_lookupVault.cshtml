@@ -1,0 +1,120 @@
+﻿@*
+    File showing inputs necessary to look up a Vault Transaction
+    Simple format
+*@
+
+@{
+    var pgid = Request["payGateId"] != null ? Request["payGateId"] : PayhostSOAP.DEFAULT_PGID;
+    var encryptionKey = Request["encryptionKey"] != null ? Request["encryptionKey"] : PayhostSOAP.DEFAULT_ENCRYPTION_KEY;
+    var vaultId = Request["vaultId"] != null ? Request["vaultId"] : "";
+
+    var queryText = "";
+    var responseText = "";
+
+    if (Request["btnSubmit"] != null)
+    {
+        //Create the PayHost client
+        PayHost.PayHOST payHost = new PayHost.PayHOSTClient("PayHOSTSoap11");
+        ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls12;
+
+        PayHost.LookUpVaultRequestType lookUpVaultRequest = PayhostSOAP.makeLookupVaultRequest(Request);
+
+        queryText = PayhostSOAP.getXMLText(lookUpVaultRequest);
+
+        //Start of SOAP request
+        var sprequest = new PayHost.SingleVaultRequest
+        {
+            //Item = new XmlElementAttribute("CardPaymentRequest", typeof(PayHost.CardPaymentRequestType))
+            Item = lookUpVaultRequest
+        };
+        var sprequest1 = new PayHost.SingleVaultRequest1(sprequest);
+
+
+        try
+        {
+            var response = payHost.SingleVault(sprequest1);
+            var r = response.SingleVaultResponse.Item as PayHost.LookUpVaultResponseType;
+
+            var keys = r.Status.GetType().GetProperties();
+            foreach (var key in keys)
+            {
+                if (r.Status.GetType().GetProperty(key.Name).GetValue(r.Status, null) != null)
+                {
+                    responseText += key.Name + ": " + r.Status.GetType().GetProperty(key.Name).GetValue(r.Status, null) + Environment.NewLine;
+                }
+            }
+
+        }
+        catch (Exception e)
+        {
+            var err = e.Message;
+            responseText = err;
+        }
+
+    }
+}
+
+<html>
+<head>
+    <title>PayHost - Lookup Vault</title>
+    <style type="text/css">
+        label {
+            margin-top: 5px;
+            display: inline-block;
+            width: 150px;
+        }
+    </style>
+</head>
+<body>
+    <a href="../../../PayHost/singleVault/lookupVault/index.cshtml">Back to Lookup Vault</a>
+    <br>
+    <form role="form" class="form-horizontal text-left" action="simple_lookupVault.cshtml" method="post">
+        <label for="payGateId">PayGate ID</label>
+        <input type="text" name="payGateId" id="payGateId" value="@pgid" />
+        <br>
+        <label for="encryptionKey" class="col-sm-3 control-label">Encryption Key</label>
+        <input class="form-control" type="text" name="encryptionKey" id="encryptionKey" value="@encryptionKey" />
+        <br>
+        <label for="vaultId" class="col-sm-3 control-label">Vault ID</label>
+        <input class="form-control" type="text" name="vaultId" id="vaultId" value="@vaultId" />
+        <br>
+        <div class="userDefined">
+            <label for="userFields">User Defined</label>
+            <input type="text" name="userKey1" id="userKey1" class="userKey" value="" placeholder="Key" />
+            <input type="text" name="userField1" id="userField1" class="userField" value="" placeholder="Value" />
+        </div>
+        <span id="fieldHolder"></span>
+        <br>
+        <button id="addUserFieldBtn" type="button">Add User Defined Fields</button>
+        <br>
+        <br>
+        <input id="doVaultBtn" type="submit" name="btnSubmit" value="Do Lookup Vault" />
+    </form>
+    <label style="vertical-align: top;" for="request">REQUEST:</label>
+    <textarea rows="20" cols="100" id="request">@queryText</textarea><br>
+    <label style="vertical-align: top;" for="response">RESPONSE:</label>
+    <textarea rows="20" cols="100" id="response">@responseText</textarea>
+    <script type="text/javascript" src="../../../lib/js/jquery-1.10.2.min.js"></script>
+    <script type="text/javascript">
+        $(document).ready(function () {
+            $('#addUserFieldBtn').on('click', function () {
+
+                var fieldHolder = $('#fieldHolder'),
+                    lastUserFieldDiv = fieldHolder.prev('.userDefined'),
+                    key = lastUserFieldDiv.find('.userKey'),
+                    i = parseInt(key.attr('id').replace('userKey', ''));
+
+                i++;
+
+                var newUserFieldsDiv = '<div class="userDefined">' +
+                    '    <label for="reference">User Defined</label>' +
+                    '    <input class="userKey" type="text" name="userKey' + i + '" id="userKey' + i + '" value="" placeholder="Key" />' +
+                    '    <input class="userField" type="text" name="userField' + i + '" id="userField' + i + '" value="" placeholder="Value" />' +
+                    '</div>';
+
+                fieldHolder.before(newUserFieldsDiv);
+            });
+        });
+    </script>
+</body>
+</html>
