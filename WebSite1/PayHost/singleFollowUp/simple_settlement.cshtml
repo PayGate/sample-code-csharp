@@ -1,0 +1,111 @@
+﻿@*
+    Settlement transaction example simple format
+*@
+
+@{
+    //Key variables that are mandatory
+    var pgid = PayhostSOAP.DEFAULT_PGID;
+    var reference = GlobalUtility.generateReference();
+    var encryptionKey = PayhostSOAP.DEFAULT_ENCRYPTION_KEY;
+    var transId = "";
+    var merchantOrderId = "";
+    var settleResponse = "";
+    var settleRequestText = "";
+
+    //Set up Payhost Web Service
+    PayHost.PayHOST payHOST = new PayHost.PayHOSTClient("PayHOSTSoap11");
+    ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls12;
+
+    //Will make a SingleFollowUp call
+    PayHost.SettleRequestType settleRequest = new PayHost.SettleRequestType();
+    settleRequest.Account = new PayHost.PayGateAccountType();
+    settleRequest.Account.PayGateId = pgid;
+    settleRequest.Account.Password = encryptionKey;
+
+    if (Request["btnSubmit"] != null)
+    {
+        var identifier = Request["identifier"];
+        switch (identifier)
+        {
+            case "merchantorderid":
+                settleRequest.ItemElementName = new PayHost.ItemChoiceType();
+                settleRequest.ItemElementName = PayHost.ItemChoiceType.MerchantOrderId;
+                settleRequest.Item = Request["merchantOrderId"];
+                break;
+            case "transid":
+                settleRequest.ItemElementName = new PayHost.ItemChoiceType();
+                settleRequest.ItemElementName = PayHost.ItemChoiceType.TransactionId;
+                settleRequest.Item = Request["transid"];
+                break;
+        }
+
+        settleRequestText = PayhostSOAP.getXMLText(settleRequest);
+
+        try
+        {
+            var fupRequest = new PayHost.SingleFollowUpRequest
+            {
+                Item = settleRequest
+            };
+
+            var response = payHOST.SingleFollowUp(new PayHost.SingleFollowUpRequest1(fupRequest));
+            var t = response.SingleFollowUpResponse as PayHost.SingleFollowUpResponse;
+            var status = t.Items[0] as PayHost.SettleResponseType;
+
+            settleResponse = PayhostSOAP.getXMLText(response);
+
+        }
+        catch (Exception e)
+        {
+            var err = e.Message;
+        }
+    }
+
+}
+
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+    <meta http-equiv="content-type" content="text/html; charset=utf-8">
+    <title>PayHost - Settlement</title>
+    <style type="text/css">
+        label {
+            margin-top: 5px;
+            display: inline-block;
+            width: 150px;
+        }
+    </style>
+</head>
+<body>
+    <a href="../singleFollowUp/settlement.cshtml">Back to Settlement</a>
+    <br />
+    <form role="form" class="form-horizontal text-left" action="simple_settlement.cshtml" method="post">
+        <label for="payGateId" class="col-sm-3 control-label">PayGate ID</label>
+        <input class="form-control" type="text" name="payGateId" id="payGateId" value="@pgid" /><br />
+        <label for="encryptionKey" class="col-sm-3 control-label">Encryption Key</label>
+        <input class="form-control" type="text" name="encryptionKey" id="encryptionKey" value="@encryptionKey" /><br />
+        <span class="input-group-addon">
+            <label for="merchantOrderIdChk" class="sr-only">Merchant Order ID</label>
+            <input name="identifier" id="merchantOrderIdChk" value="merchantorderid" type="radio" aria-label="Merchant Order ID Checkbox">
+        </span>
+        <input type="text" name="merchantOrderId" id="merchantOrderId" class="form-control" aria-label="Merchant Order ID Input" value="@merchantOrderId" /><br />
+        <span class="input-group-addon">
+            <label for="transidChk" class="sr-only">Transaction ID Checkbox</label>
+            <input name="identifier" id="transidChk" value="transid" type="radio" aria-label="Transaction ID Checkbox">
+        </span>
+        <input type="text" name="transId" id="transId" class="form-control" aria-label="Transaction ID Input" value="@transId" />
+        <br>
+        <div class="form-group">
+            <div class=" col-sm-offset-4 col-sm-4">
+                <img src="/../../lib/images/loader.gif" alt="Processing" class="initialHide" id="queryLoader">
+                <input class="btn btn-success btn-block" id="doVoidBtn" type="submit" name="btnSubmit" value="Do Settlement" />
+            </div>
+        </div>
+        <br>
+    </form>
+    <label style="vertical-align: top;" for="request">REQUEST: </label>
+    <textarea rows="20" cols="100" id="request" class="form-control">@settleRequestText</textarea><br />
+    <label style="vertical-align: top;" for="response">RESPONSE: </label>
+    <textarea rows="20" cols="100" id="response" class="form-control">@settleResponse</textarea>
+</body>
+</html>

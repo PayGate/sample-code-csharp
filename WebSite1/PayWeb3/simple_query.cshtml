@@ -1,0 +1,82 @@
+﻿@* 
+    Does the same as query.cshtml    
+    Only display format is changed
+*@
+
+@using System.Text;
+@{ 
+    var data = new Dictionary<string, string>()
+{
+{ "PAYGATE_ID", Request["PAYGATE_ID"] },
+{"PAY_REQUEST_ID", Request["PAY_REQUEST_ID"] },
+{"REFERENCE", Request["REFERENCE"] }
+};
+
+    var encryption_key = Request["encryption_key"] != "" ? Request["encryption_key"] : "secret";
+    var pgid = data["PAYGATE_ID"] != "" ? data["PAYGATE_ID"] : "10011072130";
+    var payrequestid = data["PAY_REQUEST_ID"] != "" ? data["PAY_REQUEST_ID"] : "";
+    var reference = data["REFERENCE"] != "" ? data["REFERENCE"] : "";
+
+    var pg3 = new PaygatePayweb3();
+    pg3.setEncryptionKey(encryption_key);
+    pg3.setQueryRequest(data);
+    var returnData = pg3.doQuery();
+
+    var htmlError = new StringBuilder("<label for=\"response\">RESPONSE: </label><br>");
+    if (pg3.queryResponse.Count > 0)
+    {
+        //We have received a response from PayWeb3
+        if (pg3.lastError == null)
+        {
+            //No error
+            htmlError.Append("<textarea name=\"response\" id=\"response\" rows=\"20\" cols=\"100\">");
+            foreach (var item in pg3.queryResponse)
+            {
+                htmlError.Append(item.Key + " = " + item.Value + "\n");
+            }
+            htmlError.Append("</textarea>");
+        }
+        else
+        {
+            htmlError.Append("ERROR: " + pg3.lastError);
+        }
+    }
+    htmlError.Append("</div>");
+
+    var htmlErrorRaw = Html.Raw(htmlError);
+}
+
+<html>
+<head>
+    <title>PayWeb 3 - Query</title>
+    <style type="text/css">
+
+        label {
+            margin-top: 5px;
+            display: inline-block;
+            width: 200px;
+        }
+    </style>
+</head>
+<body>
+    <a href="query.cshtml">Back to Query</a>
+    <form action="simple_query.cshtml" method="post">
+        <label for="PAYGATE_ID" class="col-sm-3 control-label">PayGate ID</label>
+        <input type="text" name="PAYGATE_ID" id="PAYGATE_ID" class="form-control" value="@pgid" />
+        <br>
+        <label for="PAY_REQUEST_ID" class="col-sm-3 control-label">Pay Request ID</label>
+        <input type="text" name="PAY_REQUEST_ID" id="PAY_REQUEST_ID" class="form-control" value="@payrequestid" />
+        <br>
+        <label for="REFERENCE" class="col-sm-3 control-label">Reference</label>
+        <input type="text" name="REFERENCE" id="REFERENCE" class="form-control" value="@reference" />
+        <br>
+        <label for="encryption_key" class="col-sm-3 control-label">Encryption Key</label>
+        <input type="text" name="encryption_key" id="encryption_key" class="form-control" value="@encryption_key" />
+        <br>
+        <br>
+        <input type="submit" id="doQueryBtn" class="btn btn-success btn-block" value="Do Query" name="btnSubmit">
+        <br>
+    </form>    
+    @htmlErrorRaw
+</body>
+</html>

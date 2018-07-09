@@ -1,0 +1,134 @@
+﻿@*
+    Void transaction example - simple format
+*@
+
+@{
+    //Key variables that are mandatory
+    var pgid = PayhostSOAP.DEFAULT_PGID;
+    var reference = GlobalUtility.generateReference();
+    var encryptionKey = PayhostSOAP.DEFAULT_ENCRYPTION_KEY;
+    var transactionType = "";
+    var transId = "";
+    var merchantOrderId = "";
+    var voidResponse = "";
+    var voidRequestText = "";
+    var paymentMethodType = "";
+
+    //Set up Payhost Web Service
+    PayHost.PayHOST payHOST = new PayHost.PayHOSTClient("PayHOSTSoap11");
+    ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls12;
+
+    //Will make a SingleFollowUp call
+    PayHost.VoidRequestType voidRequest = new PayHost.VoidRequestType();
+    voidRequest.Account = new PayHost.PayGateAccountType();
+    voidRequest.Account.PayGateId = pgid;
+    voidRequest.Account.Password = encryptionKey;
+
+    if (Request["btnSubmit"] != null)
+    {
+        var identifier = Request["identifier"];
+        switch (identifier)
+        {
+            case "merchantorderid":
+                voidRequest.ItemElementName = new PayHost.ItemChoiceType2();
+                voidRequest.ItemElementName = PayHost.ItemChoiceType2.MerchantOrderId;
+                voidRequest.Item = Request["merchantOrderId"];
+                break;
+            case "transid":
+                voidRequest.ItemElementName = new PayHost.ItemChoiceType2();
+                voidRequest.ItemElementName = PayHost.ItemChoiceType2.TransactionId;
+                voidRequest.Item = Request["transid"];
+                break;
+        }
+
+
+        voidRequest.TransactionType = new PayHost.TransactionType();
+        if (Request["transactionType"] != null && Request["transactionType"] != "")
+        {
+            voidRequest.TransactionType = (PayHost.TransactionType)Enum.Parse(typeof(PayHost.TransactionType), Request["transactionType"]);
+        }
+
+        voidRequestText = PayhostSOAP.getXMLText(voidRequest);
+
+        try
+        {
+            var fupRequest = new PayHost.SingleFollowUpRequest
+            {
+                Item = voidRequest
+            };
+
+            var response = payHOST.SingleFollowUp(new PayHost.SingleFollowUpRequest1(fupRequest));
+            var t = response.SingleFollowUpResponse as PayHost.SingleFollowUpResponse;
+            var status = t.Items[0] as PayHost.VoidResponseType;
+
+            var keys = status.Status.GetType().GetProperties();
+            foreach (var key in keys)
+            {
+                voidResponse += key.Name + ": " + status.Status.GetType().GetProperty(key.Name).GetValue(status.Status, null) + Environment.NewLine;
+            }
+
+            voidResponse = PayhostSOAP.getXMLText(response);
+
+        }
+        catch (Exception e)
+        {
+            var err = e.Message;
+        }
+    }
+
+}
+
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
+<html>
+<head>
+    <meta http-equiv="content-type" content="text/html; charset=utf-8">
+    <title>PayHost - Void</title>
+    <style type="text/css">
+        label {
+            margin-top: 5px;
+            display: inline-block;
+            width: 150px;
+        }
+    </style>
+</head>
+<body>
+    <a href="../singleFollowUp/void.cshtml">Back to Void</a>
+    <br />
+    <form role="form" class="form-horizontal text-left" action="simple_void.cshtml" method="post">
+        <label for="payGateId" class="col-sm-3 control-label">PayGate ID</label>
+        <input class="form-control" type="text" name="payGateId" id="payGateId" value="@pgid" /><br />
+        <label for="encryptionKey" class="col-sm-3 control-label">Encryption Key</label>
+        <input class="form-control" type="text" name="encryptionKey" id="encryptionKey" value="@encryptionKey" /><br />
+        <label for="transactionType" class="col-sm-3 control-label">Transaction Type</label>
+        <select name="transactionType" id="transactionType" class="form-control">
+            <option value="Authorisation">Authorisation</option>
+            <option value="Settlement">Settlement</option>
+            <option value="Refund">Refund</option>
+            <option value="Payout">Payout</option>
+            <option value="Purchase">Purchase</option>
+        </select><br />
+        <span class="input-group-addon">
+            <label for="merchantOrderIdChk" class="sr-only">Merchant Order ID</label>
+            <input name="identifier" id="merchantOrderIdChk" value="merchantorderid" type="radio" aria-label="Merchant Order ID Checkbox">
+        </span>
+        <input type="text" name="merchantOrderId" id="merchantOrderId" class="form-control" aria-label="Merchant Order ID Input" value="@merchantOrderId" /><br />
+        <span class="input-group-addon">
+            <label for="transidChk" class="sr-only">Transaction ID Checkbox</label>
+            <input name="identifier" id="transidChk" value="transid" type="radio" aria-label="Transaction ID Checkbox">
+        </span>
+        <input type="text" name="transId" id="transId" class="form-control" aria-label="Transaction ID Input" value="@transId" />
+        <br>
+        <div class="form-group">
+            <div class=" col-sm-offset-4 col-sm-4">
+                <img src="/../../lib/images/loader.gif" alt="Processing" class="initialHide" id="queryLoader">
+                <input class="btn btn-success btn-block" id="doVoidBtn" type="submit" name="btnSubmit" value="Do Void" />
+            </div>
+        </div>
+        <br>
+    </form>
+    <label style="vertical-align: top;" for="request">REQUEST: </label>
+    <textarea rows="20" cols="100" id="request" class="form-control">@voidRequestText</textarea><br />
+    <label style="vertical-align: top;" for="response">RESPONSE: </label>
+    <textarea rows="20" cols="100" id="response" class="form-control">@voidResponse</textarea>
+</body>
+</html>
