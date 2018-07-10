@@ -1,12 +1,8 @@
 ﻿@*
     This is an example page of the process required for a PayGate PayHost Card Token Payment transaction.
-    Same functionality, simple format
 *@
-@using System.ServiceModel;
-@using System.ServiceModel.Web;
 @using System.Text;
-@using System.Xml.Serialization;
-@using System.Xml;
+@using System.Globalization;
 @{
     var initRequest = new StringBuilder();
     string responseTxt = "";
@@ -18,6 +14,7 @@
     var htmlRedirectRaw2 = Html.Raw("");
     var htmlRedirect = "";
     string redirectUrl = "";
+    var amount = "123,45";
 
     ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls12;
 
@@ -73,7 +70,12 @@ PayHost.ItemsChoiceType.VaultId
     CardPaymentRequestType.Order = new PayHost.OrderType();
     CardPaymentRequestType.Order.MerchantOrderId = GlobalUtility.generateReference();
     CardPaymentRequestType.Order.Currency = PayHost.CurrencyType.ZAR;
-    CardPaymentRequestType.Order.Amount = 12311;
+
+    //Convert decimal comma to decimal point
+    amount = amount.Replace(",", ".");
+    //Change to cents
+    CardPaymentRequestType.Order.Amount = (int)(100 * Decimal.Parse(amount, CultureInfo.InvariantCulture));
+
     CardPaymentRequestType.Order.OrderItems = new PayHost.OrderItemType[1];
     CardPaymentRequestType.Order.OrderItems[0] = new PayHost.OrderItemType();
     CardPaymentRequestType.Order.OrderItems[0].ProductCode = "ABC123";
@@ -82,7 +84,10 @@ PayHost.ItemsChoiceType.VaultId
     CardPaymentRequestType.Order.OrderItems[0].ProductRisk = "XX";
     CardPaymentRequestType.Order.OrderItems[0].OrderQuantity = UInt32.Parse("1");
     CardPaymentRequestType.Order.OrderItems[0].OrderQuantitySpecified = true;
-    CardPaymentRequestType.Order.OrderItems[0].UnitPrice = Decimal.Parse("123.11");
+
+    //Change amount in rand to cents
+    CardPaymentRequestType.Order.OrderItems[0].UnitPrice = (int)(100 * Decimal.Parse(amount, CultureInfo.InvariantCulture));
+
     CardPaymentRequestType.Order.OrderItems[0].UnitPriceSpecified = true;
     CardPaymentRequestType.Order.OrderItems[0].Currency = "ZAR";
 
@@ -154,11 +159,6 @@ PayHost.ItemsChoiceType.VaultId
             */
             var err = sf.Message;
         }
-    }
-    else
-    {
-
-
     }
 }
 
